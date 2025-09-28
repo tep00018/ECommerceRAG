@@ -1,0 +1,124 @@
+# BARMR Pipeline Configuration
+# BM25 Augmented Retrieval and MS MARCO Reranking
+# Based on actual implementation: BARMR_bm25_retriever_minilm_l6_cross_encoder.py
+
+pipeline:
+  name: "BARMR"
+  description: "BM25 Augmented Retrieval and MS MARCO Reranking Pipeline"
+
+# Data paths
+data:
+  node_file: "data/nodes/amazon_stark_nodes_processed.csv"
+  sparse_embeddings: "data/embeddings/sparse_embeddings_reviews_030925.pkl"
+  query_splits:
+    validation: "data/queries/validation_queries.csv"
+    evaluation_filtered: "data/queries/evaluation_queries_filtered.csv"
+    evaluation_full: "data/queries/evaluation_queries_full.csv"
+  results_dir: "data/results/"
+
+# BM25 Retriever Configuration with Graph Augmentation
+retriever:
+  type: "BM25"
+  
+  # Optimized BM25 hyperparameters (from actual implementation)
+  bm25_params:
+    k1: 1.016564434220879      # Term frequency saturation
+    b: 0.8856501982953431      # Field length normalization
+    similarity_threshold: 21   # Minimum score threshold
+  
+  # Text processing
+  tokenizer: "nltk"            # Use NLTK tokenizer
+  remove_stopwords: true       # Remove English stopwords
+  use_stemming: false          # No stemming applied
+  
+  # Graph augmentation settings
+  graph_augmentation:
+    enabled: true
+    hop_count: 1               # 1-hop expansion only
+    edge_types: 
+      - "also_buy"             # Also-bought relationships
+      - "also_view"            # Also-viewed relationships
+    max_expansion: 50          # Maximum nodes to add per candidate
+  
+  # Retrieval parameters
+  retrieve_k: 100              # Number of initial candidates
+
+# MS MARCO Cross-Encoder Reranker Configuration
+reranker:
+  model_name: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  batch_size: 32
+  max_length: 512
+  rerank_k: 100               # Number of candidates to return after reranking
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "hit@1"
+    - "hit@5"
+    - "hit@10" 
+    - "hit@20"
+    - "hit@30"
+    - "hit@50"
+    - "hit@75"
+    - "hit@100"
+    - "recall@20"
+    - "recall@30"
+    - "recall@50"
+    - "recall@75"
+    - "recall@100"
+    - "MRR"
+  
+  # Save partial results during processing
+  save_partial: true
+  partial_interval: 10        # Save every N queries
+  
+  # Expected performance (from actual results)
+  expected_performance:
+    hit@1: 49.67
+    hit@5: 73.74
+    mrr: 0.6037
+    speed: "0.44 it/s"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Hardware Configuration  
+hardware:
+  device: "auto"              # BM25 runs on CPU, reranker can use GPU
+  num_workers: 4
+
+# Pipeline Characteristics
+characteristics:
+  description: "Interpretable sparse retrieval enhanced with knowledge graph relationships"
+  strengths:
+    - "Interpretable BM25 sparse retrieval with exact keyword matching"
+    - "Graph-enhanced with 1-hop expansion using product relationships"
+    - "Leverages also-bought/also-viewed behavioral data"
+    - "Fast cross-encoder reranking"
+    - "Explainable retrieval decisions"
+  use_cases:
+    - "Systems requiring interpretable retrieval decisions"
+    - "Applications prioritizing exact keyword matching"
+    - "Scenarios where graph relationships provide valuable context"
+    - "Explainable recommendation systems"
+
+# Text Processing Configuration
+text_processing:
+  fields_to_combine:
+    - "title"
+    - "description"
+    - "brand"
+    - "category"
+    - "global_category"
+    - "features"
+    - "reviews"
+  
+  preprocessing:
+    lowercase: true
+    remove_special_chars: true
+    remove_punctuation: true
+    expand_contractions: true
+    remove_digits: false       # Keep product numbers/models
+    lemmatization: false       # Not used in BM25 implementation

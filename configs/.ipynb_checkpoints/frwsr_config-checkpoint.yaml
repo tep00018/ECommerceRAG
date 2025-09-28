@@ -1,0 +1,66 @@
+# FRWSR Pipeline Configuration
+# FAISS Retrieval and Webis Set-encoder Reranking
+
+pipeline:
+  name: "FRWSR"
+  description: "FAISS Retrieval and Webis Set-encoder Reranking Pipeline"
+
+# Data paths
+data:
+  node_file: "data/nodes/amazon_stark_nodes_processed.csv"
+  query_splits:
+    validation: "data/queries/validation_queries.csv"
+    evaluation_filtered: "data/queries/evaluation_queries_filtered.csv"  # ≤20 answers
+    evaluation_full: "data/queries/evaluation_queries_full.csv"          # All queries
+  results_dir: "data/results/"
+
+# FAISS Retriever Configuration
+retriever:
+  model_name: "intfloat/e5-large"
+  index_path: "data/indices/faiss_e5_large_hnsw/"
+  index_type: "HNSW"  # Options: "FLAT", "HNSW"
+  dimension: 1024     # E5-large embedding dimension
+  
+  # HNSW Index Parameters
+  index_params:
+    M: 64                    # Number of neighbors per node
+    efConstruction: 100      # Construction time parameter
+    efSearch: 200           # Search time parameter
+  
+  # Retrieval parameters
+  retrieve_k: 100           # Number of candidates to retrieve
+
+# Webis Set-Encoder Reranker Configuration
+reranker:
+  model_name: "webis/set-encoder-large"  # Options: webis/set-encoder-{base,large,novelty-base}
+  batch_size: 16
+  max_length: 512
+  rerank_k: 100             # Number of candidates to rerank and return
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "hit@1"
+    - "hit@5" 
+    - "hit@10"
+    - "hit@20"
+    - "recall@20"
+    - "MRR"
+  
+  # Save partial results during processing
+  save_partial: true
+  partial_interval: 10      # Save every N queries
+  
+  # Output settings
+  include_predictions: true
+  include_scores: false     # Set to true to save relevance scores
+
+# Logging Configuration
+logging:
+  level: "INFO"             # Options: DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+# Hardware Configuration
+hardware:
+  device: "auto"            # Options: "auto", "cuda", "cpu"
+  num_workers: 4            # For data loading
