@@ -138,14 +138,17 @@ python scripts/create_bm25_embeddings.py \
 python scripts/build_faiss_flat.py --embeddings data/embeddings/e5_large_embeddings.npy
 python scripts/build_faiss_hnsw.py --embeddings data/embeddings/e5_large_embeddings.npy
 python scripts/build_indices.py --index-type bm25 --graph-augmentation
+```
 
-**Option 2: Manual Setup**  
+###  Option 2: Manual Setup
+```bash
 If automated download fails, use the included Colab notebook:
 
 1. Open notebooks/download_stark_amazon_skb.ipynb in Google Colab  
 2. Run all cells to download and process the dataset  
 3. Download the resulting CSV to data/nodes/amazon_stark_nodes_processed.csv  
 4. Run the embedding and index building scripts above  
+```
 
 **Data Files Not Included in Repository**  
 Due to size constraints, the following files are not in the repository:
@@ -156,7 +159,7 @@ Due to size constraints, the following files are not in the repository:
 - data/indices/ (various sizes)  
 
 Query files ARE included: The three query CSV files in data/queries/ are included in the repository.
-```
+
 
 ### File Structure After Setup
 ```
@@ -295,22 +298,6 @@ evaluation:
   metrics: ["hit@1", "hit@5", "hit@20", "recall@20", "MRR"]
 ```
 
-## 📚 Documentation
-
-- [Installation Guide](docs/installation.md)
-- [Usage Examples](docs/usage.md) 
-- [API Reference](docs/api_reference.md)
-- [Configuration Guide](docs/configuration.md)
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## 📝 Citation
 
@@ -323,11 +310,10 @@ If you use this code in your research, please cite our paper:
   year={2025},
   note={Manuscript submitted for review to ACM},
 }
-}
 ```
 
 ## 📄 License
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
 
 
 ## 🙏 Acknowledgments
@@ -336,12 +322,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - [sentence-transformers](https://github.com/UKPLab/sentence-transformers) library
 - [FAISS](https://github.com/facebookresearch/faiss) by Facebook AI Research
 - [Lightning IR](https://github.com/webis-de/lightning-ir) by Webis Research Group
-
-## ❓ Support
-
-- 📧 Email: [corresponding-author@university.edu](mailto:corresponding-author@university.edu)
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/neural-retriever-reranker-rag/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/yourusername/neural-retriever-reranker-rag/discussions)
 
 ---
 
