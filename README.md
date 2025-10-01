@@ -9,21 +9,26 @@
 This repository contains three state-of-the-art RAG pipeline implementations evaluated on the Amazon STaRK Semi-structured Knowledge Base, achieving **20.4% improvement in Hit@1** and **14.5% improvement in Mean Reciprocal Rank (MRR)** over published benchmarks.
 
 ## 🚀 Quick Start
-
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/neural-retriever-reranker-rag.git
-cd neural-retriever-reranker-rag
+git clone https://github.com/tep00018/ECommerceRAG.git
+cd ECommerceRAG
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Download and prepare data (see Data Setup below)
-python scripts/download_data.py
+# Download Amazon STaRK dataset
+python scripts/download_stark_nodes.py --output-dir data/nodes/ --verbose
 
-# Run evaluation on FRWSR pipeline
-python scripts/run_evaluation.py --config configs/frwsr_config.yaml --dataset validation
+# Create embeddings and indices (see Installation Guide for details)
+python scripts/create_embeddings.py --data-file data/nodes/amazon_stark_nodes_processed.csv --output-dir data/embeddings/
+
+# Run quick test on FRMR pipeline
+python scripts/run_evaluation.py --config configs/frmr_config.yaml --dataset validation --max-queries 10
 ```
+
+📖 **For detailed installation instructions, troubleshooting, and pipeline setup, see [Installation Guide](docs/installation.md)**
+
 
 ## 📊 Pipeline Variants
 
