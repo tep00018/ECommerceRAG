@@ -1,7 +1,7 @@
 # Neural Retriever-Reranker RAG Pipelines
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 **Official implementation of "Neural Retriever–Reranker Pipelines for Retrieval Augmented Generation over Knowledge Graphs in e-Commerce Applications"**
@@ -117,12 +117,45 @@ Download and place the following files in the `data/` directory:
 
 ### Data Download Script
 
-```bash
-# Automated data download and preprocessing
-python scripts/download_data.py --output-dir data/
+Download the STARK Amazon dataset using either method:
 
-# Or download manually from:
-# https://huggingface.co/datasets/snap-stanford/stark
+### Option 1: Automated Setup (Recommended)
+```bash
+# Download and process Amazon STaRK dataset
+python scripts/download_stark_nodes.py --output-dir data/nodes/
+
+# Create embeddings for FAISS pipelines
+python scripts/create_embeddings.py \
+  --data-file data/nodes/amazon_stark_nodes_processed.csv \
+  --output-dir data/embeddings/
+
+# Create tokenized documents for BM25 pipeline
+python scripts/create_bm25_embeddings.py \
+  --data-file data/nodes/amazon_stark_nodes_processed.csv \
+  --output-dir data/embeddings/
+
+# Build all indices
+python scripts/build_faiss_flat.py --embeddings data/embeddings/e5_large_embeddings.npy
+python scripts/build_faiss_hnsw.py --embeddings data/embeddings/e5_large_embeddings.npy
+python scripts/build_indices.py --index-type bm25 --graph-augmentation
+
+**Option 2: Manual Setup**  
+If automated download fails, use the included Colab notebook:
+
+1. Open notebooks/download_stark_amazon_skb.ipynb in Google Colab  
+2. Run all cells to download and process the dataset  
+3. Download the resulting CSV to data/nodes/amazon_stark_nodes_processed.csv  
+4. Run the embedding and index building scripts above  
+
+**Data Files Not Included in Repository**  
+Due to size constraints, the following files are not in the repository:
+
+- data/nodes/amazon_stark_nodes_processed.csv (~8GB)  
+- data/embeddings/e5_large_embeddings.npy (~4GB)  
+- data/embeddings/bm25_tokenized_documents.pkl (~3GB)  
+- data/indices/ (various sizes)  
+
+Query files ARE included: The three query CSV files in data/queries/ are included in the repository.
 ```
 
 ### File Structure After Setup
@@ -284,21 +317,18 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 If you use this code in your research, please cite our paper:
 
 ```bibtex
-@article{rumble2025neural,
+@unpublished{rumble2025neural,
   title={Neural Retriever–Reranker Pipelines for Retrieval Augmented Generation over Knowledge Graphs in e-Commerce Applications},
   author={Rumble, Teri and Gazdík, Zbyněk and Zarrin, Javad and Ahluwalia, Jagdeep},
-  journal={Journal of the ACM},
-  volume={37},
-  number={4},
-  pages={111:1--111:24},
   year={2025},
-  publisher={ACM}
+  note={Manuscript submitted for review to ACM},
+}
 }
 ```
 
 ## 📄 License
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
