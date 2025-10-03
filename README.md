@@ -56,8 +56,8 @@ This repository implements three high-performance RAG pipelines based on actual 
 
 ```
 neural-retriever-reranker-rag/
-├── src/                          # Source code
-│   ├── pipeline/                 # Pipeline implementations
+├── src/                         # Source code
+│   ├── pipeline/                # Pipeline implementations
 │   ├── retrieval/               # Retrieval components
 │   ├── reranking/               # Reranking components
 │   ├── evaluation/              # Metrics and evaluation
@@ -66,6 +66,7 @@ neural-retriever-reranker-rag/
 ├── scripts/                     # Execution scripts
 ├── data/                        # Data directory (see Data Setup)
 ├── examples/                    # Usage examples
+├── notebooks/                   # STaRK data download for notebook
 └── docs/                        # Documentation
 ```
 

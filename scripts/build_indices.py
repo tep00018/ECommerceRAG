@@ -13,9 +13,10 @@ Usage:
 
 import sys
 import logging
+import pickle
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 import click
 import pandas as pd
@@ -96,8 +97,45 @@ def build_faiss_index(
     logger.info(f"FAISS index built successfully: {stats}")
 
 
+def load_tokenized_documents(tokens_file: Path) -> tuple:
+    """
+    Load pre-tokenized documents from pickle file.
+    
+    Args:
+        tokens_file: Path to tokenized documents pickle file
+        
+    Returns:
+        Tuple of (tokenized_docs, node_ids, metadata)
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Loading tokenized documents from {tokens_file}")
+    
+    with open(tokens_file, 'rb') as f:
+        data = pickle.load(f)
+    
+    # Handle both dict format and legacy list format
+    if isinstance(data, dict):
+        tokenized_docs = data['tokenized_documents']
+        node_ids = data['node_ids']
+        metadata = data.get('metadata', {})
+    else:
+        # Legacy format: just a list of tokenized docs
+        tokenized_docs = data
+        node_ids = None
+        metadata = {}
+    
+    logger.info(f"Loaded {len(tokenized_docs):,} tokenized documents")
+    
+    if metadata:
+        stats = metadata.get('statistics', {})
+        if stats:
+            logger.info(f"Avg tokens/doc: {stats.get('avg_tokens_per_doc', 0):.1f}")
+    
+    return tokenized_docs, node_ids, metadata
+
+
 def build_bm25_index(
-    documents: list,
+    node_tokens: List[List[str]],
     node_ids: list,
     output_path: Path,
     graph_edges: Dict[int, Dict[str, list]] = None,
@@ -105,10 +143,10 @@ def build_bm25_index(
     graph_augmentation: bool = False
 ) -> None:
     """
-    Build BM25 index from documents.
+    Build BM25 index from pre-tokenized documents.
     
     Args:
-        documents: List of document texts
+        node_tokens: List of tokenized documents (each doc is a list of tokens)
         node_ids: List of corresponding node IDs
         output_path: Path to save the index
         graph_edges: Graph structure for augmentation
@@ -117,28 +155,34 @@ def build_bm25_index(
     """
     logger = logging.getLogger(__name__)
     
+    # Use ipynb hyperparameters by default
     if bm25_params is None:
         bm25_params = {
-            'k1': 1.5,
-            'b': 0.75,
-            'tokenizer': 'simple',
-            'remove_stopwords': True,
-            'use_stemming': False
+            'k1': 1.016564434220879,
+            'b': 0.8856501982953431,
+            'similarity_threshold': 21.0,
+            'remove_stopwords': True  # Stopwords already removed in preprocessing
         }
     
     logger.info(f"Building BM25 index with graph augmentation: {graph_augmentation}")
     logger.info(f"BM25 parameters: {bm25_params}")
     
-    # Initialize retriever
+    # Initialize retriever with ipynb hyperparameters
     retriever = BM25Retriever(
+        k1=bm25_params['k1'],
+        b=bm25_params['b'],
+        similarity_threshold=bm25_params['similarity_threshold'],
         graph_augmentation=graph_augmentation,
-        max_expansion=50,
-        **bm25_params
+        remove_stopwords=False  # Already preprocessed
     )
     
-    # Build index
-    logger.info(f"Processing {len(documents)} documents...")
-    retriever.build_index(documents, node_ids, graph_edges)
+    # Build index from pre-tokenized documents
+    logger.info(f"Building index from {len(node_tokens)} tokenized documents...")
+    retriever.build_index(
+        node_tokens=node_tokens,
+        node_ids=node_ids,
+        graph_edges=graph_edges
+    )
     
     # Save index
     output_path.mkdir(parents=True, exist_ok=True)
@@ -146,7 +190,16 @@ def build_bm25_index(
     
     # Log index statistics
     stats = retriever.get_index_stats()
-    logger.info(f"BM25 index built successfully: {stats}")
+    logger.info(f"BM25 index built successfully")
+    logger.info(f"  Total documents: {stats['total_documents']:,}")
+    logger.info(f"  k1: {stats['k1']}")
+    logger.info(f"  b: {stats['b']}")
+    logger.info(f"  Similarity threshold: {stats['similarity_threshold']}")
+    logger.info(f"  Graph augmentation: {stats['graph_augmentation']}")
+    
+    if graph_augmentation and graph_edges:
+        logger.info(f"  Nodes with edges: {stats.get('nodes_with_edges', 0):,}")
+        logger.info(f"  Total edges: {stats.get('total_edges', 0):,}")
 
 
 def extract_graph_edges(node_df: pd.DataFrame) -> Dict[int, Dict[str, list]]:
@@ -260,6 +313,12 @@ def validate_index(index_path: Path, index_type: str, sample_queries: list = Non
     help='Path to processed node data CSV file'
 )
 @click.option(
+    '--tokens-file', '-tf',
+    type=click.Path(exists=True, path_type=Path),
+    default='data/embeddings/bm25_tokenized_documents.pkl',
+    help='Path to pre-tokenized documents pickle file (for BM25)'
+)
+@click.option(
     '--output-dir', '-o',
     type=click.Path(path_type=Path),
     default='data/indices/',
@@ -304,6 +363,7 @@ def validate_index(index_path: Path, index_type: str, sample_queries: list = Non
 )
 def main(
     data_file: Path,
+    tokens_file: Path,
     output_dir: Path,
     index_type: str,
     model_name: str,
@@ -337,15 +397,12 @@ def main(
         logger.info("Cleaning Amazon-specific fields...")
         node_df = clean_amazon_fields(node_df)
         
-        # Prepare documents
-        logger.info("Preparing documents for indexing...")
-        documents, node_ids = prepare_documents_for_indexing(node_df)
-        
-        logger.info(f"Prepared {len(documents)} documents for indexing")
-        
         # Build indices
         if index_type in ['faiss', 'both']:
             logger.info("Building FAISS index...")
+            
+            # Prepare documents for FAISS (needs raw text)
+            documents, faiss_node_ids = prepare_documents_for_indexing(node_df)
             
             faiss_output = output_dir / f"faiss_{model_name.replace('/', '_')}_{faiss_type.lower()}"
             
@@ -358,7 +415,7 @@ def main(
             
             build_faiss_index(
                 documents=documents,
-                node_ids=node_ids,
+                node_ids=faiss_node_ids,
                 output_path=faiss_output,
                 model_name=model_name,
                 index_type=faiss_type,
@@ -372,6 +429,24 @@ def main(
         if index_type in ['bm25', 'both']:
             logger.info("Building BM25 index...")
             
+            # Load pre-tokenized documents
+            if not tokens_file.exists():
+                logger.error(f"Tokenized documents not found: {tokens_file}")
+                logger.error("Run create_bm25_embeddings.py first!")
+                raise FileNotFoundError(f"Missing tokenized documents: {tokens_file}")
+            
+            node_tokens, bm25_node_ids, tokens_metadata = load_tokenized_documents(tokens_file)
+            
+            # If node_ids not in tokens file, use from dataframe
+            if bm25_node_ids is None:
+                bm25_node_ids = node_df['node_id'].tolist()
+                logger.info("Using node_ids from CSV file")
+            
+            # Verify alignment if sample was used
+            if sample_size and len(node_tokens) != len(node_df):
+                logger.warning(f"Token count ({len(node_tokens)}) != node count ({len(node_df)})")
+                logger.warning("Re-run create_bm25_embeddings.py with the same sample!")
+            
             # Extract graph edges if augmentation is enabled
             graph_edges = None
             if graph_augmentation:
@@ -380,8 +455,8 @@ def main(
             bm25_output = output_dir / f"bm25{'_augmented' if graph_augmentation else ''}"
             
             build_bm25_index(
-                documents=documents,
-                node_ids=node_ids,
+                node_tokens=node_tokens,
+                node_ids=bm25_node_ids,
                 output_path=bm25_output,
                 graph_edges=graph_edges,
                 graph_augmentation=graph_augmentation
@@ -395,7 +470,7 @@ def main(
         
         # Print summary
         logger.info("\n=== Summary ===")
-        logger.info(f"📊 Processed {len(documents):,} documents")
+        logger.info(f"📊 Processed {len(node_df):,} nodes")
         
         if index_type in ['faiss', 'both']:
             faiss_path = output_dir / f"faiss_{model_name.replace('/', '_')}_{faiss_type.lower()}"
@@ -404,9 +479,11 @@ def main(
         if index_type in ['bm25', 'both']:
             bm25_path = output_dir / f"bm25{'_augmented' if graph_augmentation else ''}"
             logger.info(f"✅ BM25 index: {bm25_path}")
+            logger.info(f"   Using ipynb hyperparameters: k1=1.016, b=0.886, threshold=21")
             if graph_augmentation:
                 edge_count = len(graph_edges) if graph_edges else 0
                 logger.info(f"   Graph edges: {edge_count:,} nodes with relationships")
+                logger.info(f"   1-hop expansion: UNLIMITED (matches ipynb)")
         
         logger.info("\nNext steps:")
         logger.info("1. Update pipeline configs to point to the new indices")
